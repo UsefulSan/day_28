@@ -1,66 +1,38 @@
-import csv
-
-
-def read_file(authors: list, addresses: list, ads: list) -> tuple[list, list, list]:
-    """
-    Читает файл и разбивает его на 3 списка
-    :param authors: список авторов
-    :param addresses: список адресов
-    :param ads: список со словарем всех данных из файла ads.csv
-    :return: возвращает списки с данными
-    """
-    with open('ads.csv', encoding='utf-8') as file:
-        file_reader = csv.DictReader(file, delimiter=',')
-        for row in file_reader:
-            authors.append(row["author"])
-            addresses.append(row["address"])
-            ads.append({"Id": row["Id"], "name": row["name"], "author": row["author"],
-                        "price": row["price"], "description": row["description"],
-                        "address": row["address"], "is_published": row["is_published"]})
-        return authors, addresses, ads
-
-
-def write_file_fk(name: str, data: list) -> None:
-    """
-    Записывает обработанные данные для foreign key в файл
-    """
-    with open(name + '.csv', mode='w', encoding='utf-8') as file:
-        names = ("Id", f"{name}")
-        file_writer = csv.DictWriter(file, lineterminator='\r', fieldnames=names)
-        file_writer.writeheader()
-        for id_, val in enumerate(data):
-            file_writer.writerow({"Id": id_ + 1, f"{name}": val})
-
-
-def write_file_ads_new(authors: list, addresses: list, ads: list) -> None:
-    """
-    Заменяет поля авторов и адресов на соответствующие им индексы. Записывает обработанные данные
-    для foreign key в файл
-    """
-    with open('ads_new.csv', mode='w', encoding='utf-8') as file:
-        names = ['Id', 'name', 'id_author', 'price', 'description', 'id_address', 'is_published']
-        file_writer = csv.DictWriter(file, lineterminator='\r', fieldnames=names)
-        file_writer.writeheader()
-        for row in ads:
-            file_writer.writerow(dict(Id=row["Id"], name=row["name"],
-                                      id_author=authors.index(row["author"]) + 1,
-                                      price=row["price"],
-                                      description=row["description"],
-                                      id_address=addresses.index(row["address"]) + 1,
-                                      is_published=row["is_published"]))
+from requests import db_connect, handler, get_name, full_table, get_price, get_town, get_name_price
 
 
 def main():
-    authors = []
-    addresses = []
-    ads = []
+    connection = db_connect()
+    cursor = connection.cursor()
+    while True:
+        user_input = input('\nВыберите действие:\n'
+                           '1. Отобразить всю таблицу\n'
+                           '2. Отобразить таблицу конкретных авторов\n'
+                           '3. Отобразить таблицу книг с диапазоном цен\n'
+                           '4. Отобразить таблицу для конкретного города\n'
+                           '5. Отобразить таблицу с конкретным автором и ценой\n'
+                           '6. Завершить программу\n'
+                           '>>> ')
 
-    read_file(authors, addresses, ads)
-    authors = list(set(authors))
-    addresses = list(set(addresses))
-    write_file_fk('authors', authors)
-    write_file_fk('addresses', addresses)
-    write_file_ads_new(authors, addresses, ads)
+        match user_input:
+            case '1':
+                [print(data) for data in handler(cursor, full_table())]
+            case '2':
+                name = input('Введите имя пользователя \n')
+                [print(data) for data in handler(cursor, get_name(name))]
+            case '3':
+                price_min, price_max = input('Введите диапазон цен от '), input('до \n')
+                [print(data) for data in handler(cursor, get_price(price_min, price_max))]
+            case '4':
+                town = input('Введите название города \n')
+                [print(data) for data in handler(cursor, get_town(town))]
+            case '5':
+                name, price = input('Введите имя пользователя \n'), input('Введите цену \n')
+                [print(data) for data in handler(cursor, get_name_price(name, price))]
+            case '6':
+                cursor.close()
+                connection.close()
+                break
 
 
 if __name__ == '__main__':
